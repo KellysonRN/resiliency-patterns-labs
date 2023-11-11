@@ -1,3 +1,8 @@
+using System.Net;
+
+using Resiliency.Patterns.Labs.Api.Services;
+using Resiliency.Patterns.Labs.Api.Services.Interfaces;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -6,6 +11,8 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddHttpClient<IHttpBinService, HttpBinService>();
 
 var app = builder.Build();
 
@@ -23,3 +30,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public abstract partial class Program
+{
+}

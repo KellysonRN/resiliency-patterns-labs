@@ -1,5 +1,6 @@
 using System.Net;
 
+using Resiliency.Patterns.Labs.Api.Configuration;
 using Resiliency.Patterns.Labs.Api.Services;
 using Resiliency.Patterns.Labs.Api.Services.Interfaces;
 
@@ -13,6 +14,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpClient<IHttpBinService, HttpBinService>();
+builder.Services.AddSingleton(new ClientPolicy());
 
 var app = builder.Build();
 

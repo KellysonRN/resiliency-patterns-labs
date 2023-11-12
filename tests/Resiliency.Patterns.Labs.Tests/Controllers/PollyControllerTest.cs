@@ -28,5 +28,12 @@ public class PollyControllerTest  : IClassFixture<WebApplicationFactory<Program>
         Equal("World", response?.Hello);
         Equal(200, response?.Status);
     }
+    
+    [Fact]
+    public async Task Get_ReturnsError500_InvalidPolicy()
+    {
+        var client = _factory.CreateClient();
 
+        await ThrowsAsync<HttpRequestException>(() => client.DoGetAsync<PollyDto>("/api/polly/200?type=popcorn"));
+    }
 }

@@ -17,13 +17,25 @@ namespace Resiliency.Patterns.Labs.Api.Controllers
         }
         
         [HttpGet("{statusCode}", Name = "GetPolly")]
-        public IActionResult Get(int statusCode)
+        public IActionResult Get(int statusCode, [FromQuery]string? type = null)
         {
-            var response = _httpBinService.Get(statusCode);
+            try
+            {
+                var response = type switch
+                {
+                    null => _httpBinService.Get(statusCode),
+                    "retry" => _httpBinService.GetWithRetryPolicy(500, 500, 500, 200),
+                    _ => throw new ArgumentException("Invalid policy"),
+                };
             
-            var result = new PollyDto { Hello = "World", Status = response.Result };
+                var result = new PollyDto { Hello = "World", Status = response.Result };
             
-            return Ok(result);
+                return Ok(result);
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError);
+            }
         }
     }
 }

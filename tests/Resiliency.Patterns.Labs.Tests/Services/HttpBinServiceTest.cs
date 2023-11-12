@@ -2,6 +2,8 @@
 
 using Microsoft.Extensions.Logging;
 using Moq;
+
+using Resiliency.Patterns.Labs.Api.Configuration;
 using Resiliency.Patterns.Labs.Api.Services;
 using Resiliency.Patterns.Labs.Api.Services.Interfaces;
 
@@ -16,30 +18,62 @@ public class HttpBinServiceTest
     public HttpBinServiceTest()
     {
         Mock<HttpClient> mockHttpClient = new();
+        Mock<ClientPolicy> mockClientPolicy = new();
         _mockHttpBinService = new Mock<ILogger<HttpBinService>>();
-        
-        _service = new HttpBinService(httpClient: mockHttpClient.Object, logger: _mockHttpBinService.Object);
+
+        _service = new HttpBinService(httpClient: mockHttpClient.Object, logger: _mockHttpBinService.Object,
+            clientPolicy: mockClientPolicy.Object);
     }
 
     [Fact]
     public void Get_Returns_Given_StatusCode()
     {
         var response = _service.Get(200);
-        
+
         Equal(200, response.Result);
-        
+
         _mockHttpBinService.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => string.Equals("True", o.ToString(), StringComparison.InvariantCultureIgnoreCase)),
+                It.Is<It.IsAnyType>((o, t) =>
+                    string.Equals("True", o.ToString(), StringComparison.InvariantCultureIgnoreCase)),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
-}
 
-public interface IHttpClientWrapper
-{
-    Task<HttpResponseMessage> GetAsync(string requestUri, CancellationToken cancellationToken);
+    [Fact]
+    public async Task TestGetWithRetryPolicy_Success()
+    {
+        var result = await _service.GetWithRetryPolicy(500, 500, 500, 200);
+
+        _mockHttpBinService.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("HttpBinService returned a Success")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+
+        Assert.Equal(200, result);
+    }
+    
+    [Fact]
+    public async Task TestGetWithRetryPolicy_Fail()
+    {
+        var result = await _service.GetWithRetryPolicy(500);
+
+        _mockHttpBinService.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("HttpBinService returned a FAILURE")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+
+        Assert.Equal(500, result);
+    }
 }

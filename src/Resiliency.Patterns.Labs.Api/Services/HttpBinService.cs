@@ -1,22 +1,21 @@
 ﻿using Resiliency.Patterns.Labs.Api.Configuration;
 using Resiliency.Patterns.Labs.Api.Services.Interfaces;
 
+using Serilog;
+
 namespace Resiliency.Patterns.Labs.Api.Services;
 
 public class HttpBinService : IHttpBinService
 {
     private readonly HttpClient _httpClient;
 
-    private readonly ILogger<HttpBinService> _logger;
-
     private readonly ClientPolicy _clientPolicy;
 
     private const string BASE_URI = "http://httpbin.org/status";
     
-    public HttpBinService(HttpClient httpClient, ILogger<HttpBinService> logger, ClientPolicy clientPolicy)
+    public HttpBinService(HttpClient httpClient, ClientPolicy clientPolicy)
     {
         _httpClient = httpClient;
-        _logger = logger;
         _clientPolicy = clientPolicy;
     }
     
@@ -24,7 +23,7 @@ public class HttpBinService : IHttpBinService
     {
         var response = await _httpClient.GetAsync($"{BASE_URI}/{statusCode}");
         
-        _logger.LogInformation($"{response.IsSuccessStatusCode}");
+        Log.Information($"{response.IsSuccessStatusCode}");
         
         return (int)response.StatusCode;
     }
@@ -34,7 +33,7 @@ public class HttpBinService : IHttpBinService
         var response = await _clientPolicy.ExponentialHttpRetry.ExecuteAsync(()
             => _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}"));
 
-        _logger.LogInformation(response.IsSuccessStatusCode
+        Log.Information(response.IsSuccessStatusCode
             ? "--> [Retry] HttpBinService returned a Success"
             : "--> [Retry] HttpBinService returned a FAILURE");
         
@@ -57,7 +56,7 @@ public class HttpBinService : IHttpBinService
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Circuit Break] Exception caught: {ex.Message}");
+                Log.Error($"[Circuit Break] Exception caught: {ex.Message}");
             }
             
             // to simulate CircuitBreak.OnReset

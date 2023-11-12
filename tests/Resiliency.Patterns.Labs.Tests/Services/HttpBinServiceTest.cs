@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System.Net;
+
+using Microsoft.Extensions.Logging;
 using Moq;
 using Resiliency.Patterns.Labs.Api.Services;
 using Resiliency.Patterns.Labs.Api.Services.Interfaces;
@@ -9,12 +11,14 @@ public class HttpBinServiceTest
 {
     private readonly IHttpBinService _service;
 
+    private readonly Mock<ILogger<HttpBinService>> _mockHttpBinService;
+
     public HttpBinServiceTest()
     {
-        Mock<ILogger<HttpBinService>> mockHttpBinService = new();
-        var client = new HttpClient();
+        Mock<HttpClient> mockHttpClient = new();
+        _mockHttpBinService = new Mock<ILogger<HttpBinService>>();
         
-        _service = new HttpBinService(httpClient: client, logger: mockHttpBinService.Object);
+        _service = new HttpBinService(httpClient: mockHttpClient.Object, logger: _mockHttpBinService.Object);
     }
 
     [Fact]
@@ -23,5 +27,19 @@ public class HttpBinServiceTest
         var response = _service.Get(200);
         
         Equal(200, response.Result);
+        
+        _mockHttpBinService.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((o, t) => string.Equals("True", o.ToString(), StringComparison.InvariantCultureIgnoreCase)),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
+}
+
+public interface IHttpClientWrapper
+{
+    Task<HttpResponseMessage> GetAsync(string requestUri, CancellationToken cancellationToken);
 }

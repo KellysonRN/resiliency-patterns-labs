@@ -46,13 +46,13 @@ public class HttpBinServiceTest
     [Fact]
     public async Task TestGetWithRetryPolicy_Success()
     {
-        var result = await _service.GetWithRetryPolicy(500, 500, 500, 200);
+        var result = await _service.GetWithRetryPolicy(500, 200);
 
         _mockHttpBinService.Verify(
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("HttpBinService returned a Success")),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("[Retry] HttpBinService returned a Success", StringComparison.InvariantCultureIgnoreCase)),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -69,7 +69,7 @@ public class HttpBinServiceTest
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("HttpBinService returned a FAILURE")),
+                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("[Retry] HttpBinService returned a FAILURE", StringComparison.InvariantCultureIgnoreCase)),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

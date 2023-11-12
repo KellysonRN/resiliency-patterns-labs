@@ -35,15 +35,36 @@ public class HttpBinService : IHttpBinService
             => _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}"));
 
         _logger.LogInformation(response.IsSuccessStatusCode
-            ? "--> HttpBinService returned a Success"
-            : "--> HttpBinService returned a FAILURE");
+            ? "--> [Retry] HttpBinService returned a Success"
+            : "--> [Retry] HttpBinService returned a FAILURE");
         
         return (int)response.StatusCode;
     }
 
     public async Task<int> GetWithCircuitBreakerPolicy(int statusCode)
     {
-        throw new NotImplementedException();
+        for (int i = 0; i < 5; i++)
+        {
+            try
+            {
+                _ = await _clientPolicy.CircuitBreakerPolicy.ExecuteAsync(async ()
+                    =>
+                {
+                    var result = await _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}");
+                    result.EnsureSuccessStatusCode();
+                    return result;
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Circuit Break] Exception caught: {ex.Message}");
+            }
+            
+            // to simulate CircuitBreak.OnReset
+            await Task.Delay(1000);
+        }
+
+        return statusCode;
     }
 
     public async Task<int> GetWithTimeoutPolicy(int statusCode)

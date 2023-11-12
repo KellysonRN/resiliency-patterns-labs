@@ -24,7 +24,8 @@ namespace Resiliency.Patterns.Labs.Api.Controllers
                 var response = type switch
                 {
                     null => _httpBinService.Get(statusCode),
-                    "retry" => _httpBinService.GetWithRetryPolicy(500, 500, 500, 200),
+                    "retry" => _httpBinService.GetWithRetryPolicy(500, 500, 500, statusCode),
+                    "circuit-break" => _httpBinService.GetWithCircuitBreakerPolicy(statusCode),
                     _ => throw new ArgumentException("Invalid policy"),
                 };
             

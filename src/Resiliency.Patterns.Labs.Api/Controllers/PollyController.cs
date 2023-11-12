@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Resiliency.Patterns.Labs.Api.Models;
 using Resiliency.Patterns.Labs.Api.Services.Interfaces;
 
+using Serilog;
+
 namespace Resiliency.Patterns.Labs.Api.Controllers
 {
     [Route("api/[controller]")]
@@ -18,7 +20,7 @@ namespace Resiliency.Patterns.Labs.Api.Controllers
         
         [HttpGet("{statusCode}", Name = "GetPolly")]
         public IActionResult Get(int statusCode, [FromQuery]string? type = null)
-        {
+        {   
             try
             {
                 var response = type switch

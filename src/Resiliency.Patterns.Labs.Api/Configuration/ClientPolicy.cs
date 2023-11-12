@@ -2,6 +2,8 @@
 using Polly.CircuitBreaker;
 using Polly.Retry;
 
+using Serilog;
+
 namespace Resiliency.Patterns.Labs.Api.Configuration;
 
 public class ClientPolicy
@@ -11,7 +13,6 @@ public class ClientPolicy
     public AsyncRetryPolicy<HttpResponseMessage> LinearHttpRetry {get;}
     
     public AsyncRetryPolicy<HttpResponseMessage> ExponentialHttpRetry {get;}
-    
     
     public AsyncCircuitBreakerPolicy CircuitBreakerPolicy { get; }
  
@@ -23,30 +24,30 @@ public class ClientPolicy
 
         LinearHttpRetry = Policy.HandleResult<HttpResponseMessage>(
                 res => !res.IsSuccessStatusCode)
-            .WaitAndRetryAsync(5, retryAttempt => TimeSpan.FromSeconds(3));
+            .WaitAndRetryAsync(5, _ => TimeSpan.FromSeconds(3));
 
         ExponentialHttpRetry = Policy.HandleResult<HttpResponseMessage>(
                 res => !res.IsSuccessStatusCode)
             .WaitAndRetryAsync(3, retryAttempt =>
             {
-                Console.WriteLine($"Attempt: {retryAttempt}");
+                Log.Information($"Attempt: {retryAttempt}");
                 return TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
             });
         
         CircuitBreakerPolicy = Policy
             .HandleInner<HttpRequestException>()
             .CircuitBreakerAsync(2, TimeSpan.FromSeconds(3),
-                onBreak: (ex, timespan) =>
+                onBreak: (_, _) =>
                 {
-                    Console.WriteLine($"[Circuit Break] Circuit open, too many failures, requests blocked.");
+                    Log.Information($"[Circuit Break] Circuit open, too many failures, requests blocked.");
                 },
                 onReset: () =>
                 {
-                    Console.WriteLine("[Circuit Break] Circuit closed, request allowed.");
+                    Log.Information("[Circuit Break] Circuit closed, request allowed.");
                 },
                 onHalfOpen: () =>
                 {
-                    Console.WriteLine("[Circuit Break] Circuit test, one request will be allowed.");
+                    Log.Information("[Circuit Break] Circuit test, one request will be allowed.");
                 }
             );
     }

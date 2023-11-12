@@ -9,12 +9,14 @@ Learn time: Application resiliency patterns
 - .NET 7.0
 - C#
 - XUnit
+- Polly
+- Serilog
+- Stryker.NET
 
 ## Compatible IDEs
 
 Tested on:
 
-- VS Code
 - Rider
 
 ## Useful commands

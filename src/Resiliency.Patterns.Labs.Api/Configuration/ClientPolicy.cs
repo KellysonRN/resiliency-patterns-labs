@@ -1,6 +1,7 @@
 ﻿using Polly;
 using Polly.CircuitBreaker;
 using Polly.Retry;
+using Polly.Timeout;
 
 using Serilog;
 
@@ -15,6 +16,8 @@ public class ClientPolicy
     public AsyncRetryPolicy<HttpResponseMessage> ExponentialHttpRetry {get;}
     
     public AsyncCircuitBreakerPolicy CircuitBreakerPolicy { get; }
+    
+    public AsyncTimeoutPolicy TimeoutPolicyPessimistic { get;  }
  
     public ClientPolicy()
     {
@@ -30,7 +33,7 @@ public class ClientPolicy
                 res => !res.IsSuccessStatusCode)
             .WaitAndRetryAsync(3, retryAttempt =>
             {
-                Log.Information($"Attempt: {retryAttempt}");
+                Log.Error($"Attempt: {retryAttempt}");
                 return TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
             });
         
@@ -39,16 +42,22 @@ public class ClientPolicy
             .CircuitBreakerAsync(2, TimeSpan.FromSeconds(3),
                 onBreak: (_, _) =>
                 {
-                    Log.Information($"[Circuit Break] Circuit open, too many failures, requests blocked.");
+                    Log.Error($"[Circuit Break] Circuit open, too many failures, requests blocked.");
                 },
                 onReset: () =>
                 {
-                    Log.Information("[Circuit Break] Circuit closed, request allowed.");
+                    Log.Error("[Circuit Break] Circuit closed, request allowed.");
                 },
                 onHalfOpen: () =>
                 {
-                    Log.Information("[Circuit Break] Circuit test, one request will be allowed.");
+                    Log.Error("[Circuit Break] Circuit test, one request will be allowed.");
                 }
             );
+        
+        TimeoutPolicyPessimistic = Policy.TimeoutAsync(1, TimeoutStrategy.Pessimistic, onTimeoutAsync: (_, _, _) =>
+            {
+                Log.Error("[Timeout] Polly's timeout pessimistic policy terminated request because it was taking too long.");
+                return Task.CompletedTask;
+            });
     }
 }

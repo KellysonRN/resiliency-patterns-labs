@@ -68,7 +68,14 @@ public class HttpBinService : IHttpBinService
 
     public async Task<int> GetWithTimeoutPolicy(int statusCode)
     {
-        throw new NotImplementedException();
+        var response = await _clientPolicy.TimeoutPolicyPessimistic.ExecuteAsync(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10));
+            var result = _httpClient.GetAsync($"{BASE_URI}/{statusCode}");
+            return result;
+        });
+        
+        return statusCode;
     }
 
     public async Task<int> GetWithBulkheadIsolation(int statusCode)

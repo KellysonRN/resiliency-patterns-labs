@@ -80,7 +80,46 @@ public class HttpBinService : IHttpBinService
 
     public async Task<int> GetWithBulkheadIsolation(int statusCode)
     {
-        throw new NotImplementedException();
+        List<Task> tasks = new ();
+        
+        for (int i = 1; i <= 10; i++)
+        {
+            CustomProcessor(i);
+            Thread.Sleep(500);
+        }
+        
+        void CustomProcessor(int num)
+        {
+            Log.Error($@"[Bulkhead] Execution slots: {_clientPolicy.BulkheadPolicyAsync.BulkheadAvailableCount}, 
+                                                    Queue Slots: {_clientPolicy.BulkheadPolicyAsync.QueueAvailableCount}");
+            
+            var response = _clientPolicy.BulkheadPolicyAsync.ExecuteAsync(async () =>
+            {
+                Log.Error($"[Bulkhead] Executing caller to HttpBin service: ({num})");
+                
+                await Task.Delay(TimeSpan.FromSeconds(3));
+                var result = _httpClient.GetAsync($"{BASE_URI}/{statusCode}");
+                return result;
+            });
+            
+            tasks.Add(response);
+        }
+        
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[Bulkhead] Some bulkhead tasks failed with exception: {ex.Message}\n");
+        }
+
+        for (int loop = 0; loop < 10; loop++)
+        {
+            Log.Error($"[Bulkhead] Task {loop}: {tasks[loop].Status}");
+        }
+
+        return statusCode;
     }
 
     public async Task<int> GetWithFallbackPolicy(int statusCode)

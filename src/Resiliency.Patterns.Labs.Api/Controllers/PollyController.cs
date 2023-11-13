@@ -29,6 +29,7 @@ namespace Resiliency.Patterns.Labs.Api.Controllers
                     "retry" => _httpBinService.GetWithRetryPolicy(500, 500, 500, statusCode),
                     "circuit-break" => _httpBinService.GetWithCircuitBreakerPolicy(statusCode),
                     "timeout" => _httpBinService.GetWithTimeoutPolicy(statusCode),
+                    "bulkhead" => _httpBinService.GetWithBulkheadIsolation(statusCode),
                     _ => throw new ArgumentException("Invalid policy"),
                 };
             

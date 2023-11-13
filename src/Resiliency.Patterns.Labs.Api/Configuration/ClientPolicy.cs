@@ -1,4 +1,5 @@
 ﻿using Polly;
+using Polly.Bulkhead;
 using Polly.CircuitBreaker;
 using Polly.Retry;
 using Polly.Timeout;
@@ -18,6 +19,8 @@ public class ClientPolicy
     public AsyncCircuitBreakerPolicy CircuitBreakerPolicy { get; }
     
     public AsyncTimeoutPolicy TimeoutPolicyPessimistic { get;  }
+    
+    public AsyncBulkheadPolicy BulkheadPolicyAsync { get; }
  
     public ClientPolicy()
     {
@@ -59,5 +62,11 @@ public class ClientPolicy
                 Log.Error("[Timeout] Polly's timeout pessimistic policy terminated request because it was taking too long.");
                 return Task.CompletedTask;
             });
+        
+        BulkheadPolicyAsync = Policy.BulkheadAsync(1, 3, onBulkheadRejectedAsync: (context) =>
+        {
+            Log.Error("[Bulkhead] Execution and queue slots full. Requests will be rejected.");
+            return Task.CompletedTask;
+        });
     }
 }

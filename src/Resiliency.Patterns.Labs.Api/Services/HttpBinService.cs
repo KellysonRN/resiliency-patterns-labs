@@ -90,10 +90,10 @@ public class HttpBinService : IHttpBinService
         
         void CustomProcessor(int num)
         {
-            Log.Error($@"[Bulkhead] Execution slots: {_clientPolicy.BulkheadPolicyAsync.BulkheadAvailableCount}, 
-                                                    Queue Slots: {_clientPolicy.BulkheadPolicyAsync.QueueAvailableCount}");
+            Log.Error($@"[Bulkhead] Execution slots: {_clientPolicy.BulkheadPolicy.BulkheadAvailableCount}, 
+                                                    Queue Slots: {_clientPolicy.BulkheadPolicy.QueueAvailableCount}");
             
-            var response = _clientPolicy.BulkheadPolicyAsync.ExecuteAsync(async () =>
+            var response = _clientPolicy.BulkheadPolicy.ExecuteAsync(async () =>
             {
                 Log.Error($"[Bulkhead] Executing caller to HttpBin service: ({num})");
                 
@@ -124,7 +124,16 @@ public class HttpBinService : IHttpBinService
 
     public async Task<int> GetWithFallbackPolicy(int statusCode)
     {
-        throw new NotImplementedException();
+        var response = await _clientPolicy.FallbackPolicy.ExecuteAsync(async ()
+            =>
+        {
+            var result = await _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}");
+            return result;
+        });
+
+        Log.Error($"[Fallback] {await response.Content.ReadAsStringAsync()}");
+        
+        return (int)response.StatusCode;
     }
 
     public async Task<int> GetWithWrappingThePolicies(int statusCode)

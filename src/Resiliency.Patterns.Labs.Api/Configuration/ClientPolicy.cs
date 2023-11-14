@@ -1,6 +1,9 @@
-﻿using Polly;
+﻿using System.Net;
+
+using Polly;
 using Polly.Bulkhead;
 using Polly.CircuitBreaker;
+using Polly.Fallback;
 using Polly.Retry;
 using Polly.Timeout;
 
@@ -20,7 +23,9 @@ public class ClientPolicy
     
     public AsyncTimeoutPolicy TimeoutPolicyPessimistic { get;  }
     
-    public AsyncBulkheadPolicy BulkheadPolicyAsync { get; }
+    public AsyncBulkheadPolicy BulkheadPolicy { get; }
+    
+    public AsyncFallbackPolicy<HttpResponseMessage> FallbackPolicy { get; }
  
     public ClientPolicy()
     {
@@ -63,10 +68,24 @@ public class ClientPolicy
                 return Task.CompletedTask;
             });
         
-        BulkheadPolicyAsync = Policy.BulkheadAsync(1, 3, onBulkheadRejectedAsync: (context) =>
+        BulkheadPolicy = Policy.BulkheadAsync(1, 3, onBulkheadRejectedAsync: (context) =>
         {
             Log.Error("[Bulkhead] Execution and queue slots full. Requests will be rejected.");
             return Task.CompletedTask;
         });
+
+        FallbackPolicy =  Policy
+            .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
+            .FallbackAsync(fallbackAction: (response, context, cancellationToken) =>  {
+                Log.Error($"[Fallback] Action is executing. ");
+                HttpResponseMessage httpResponseMessage = new(HttpStatusCode.UnprocessableEntity)
+                {
+                    Content = new StringContent($"[Fallback] The fallback executed, the original error was {response.Result.ReasonPhrase}")
+                };
+                return Task.FromResult(httpResponseMessage);
+            }, onFallbackAsync: (result, context) =>   {
+                Log.Error("[Fallback] About to call the fallback action.");
+                return Task.CompletedTask;
+            });
     }
 }

@@ -12,31 +12,34 @@ public class HttpBinService : IHttpBinService
     private readonly ClientPolicy _clientPolicy;
 
     private const string BASE_URI = "http://httpbin.org/status";
-    
+
     public HttpBinService(HttpClient httpClient, ClientPolicy clientPolicy)
     {
         _httpClient = httpClient;
         _clientPolicy = clientPolicy;
     }
-    
+
     public async Task<int> Get(int statusCode)
     {
         var response = await _httpClient.GetAsync($"{BASE_URI}/{statusCode}");
-        
+
         Log.Information($"{response.IsSuccessStatusCode}");
-        
+
         return (int)response.StatusCode;
     }
 
     public async Task<int> GetWithRetryPolicy(params int[] statusCode)
     {
-        var response = await _clientPolicy.ExponentialHttpRetry.ExecuteAsync(()
-            => _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}"));
+        var response = await _clientPolicy.ExponentialHttpRetry.ExecuteAsync(
+            () => _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}")
+        );
 
-        Log.Information(response.IsSuccessStatusCode
-            ? "--> [Retry] HttpBinService returned a Success"
-            : "--> [Retry] HttpBinService returned a FAILURE");
-        
+        Log.Information(
+            response.IsSuccessStatusCode
+                ? "--> [Retry] HttpBinService returned a Success"
+                : "--> [Retry] HttpBinService returned a FAILURE"
+        );
+
         return (int)response.StatusCode;
     }
 
@@ -46,10 +49,11 @@ public class HttpBinService : IHttpBinService
         {
             try
             {
-                _ = await _clientPolicy.CircuitBreakerPolicy.ExecuteAsync(async ()
-                    =>
+                _ = await _clientPolicy.CircuitBreakerPolicy.ExecuteAsync(async () =>
                 {
-                    var result = await _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}");
+                    var result = await _httpClient.GetAsync(
+                        $"{BASE_URI}/{string.Join(",", statusCode)}"
+                    );
                     result.EnsureSuccessStatusCode();
                     return result;
                 });
@@ -58,7 +62,7 @@ public class HttpBinService : IHttpBinService
             {
                 Log.Error($"[Circuit Break] Exception caught: {ex.Message}");
             }
-            
+
             // to simulate CircuitBreak.OnReset
             await Task.Delay(1000);
         }
@@ -68,43 +72,44 @@ public class HttpBinService : IHttpBinService
 
     public async Task<int> GetWithTimeoutPolicy(int statusCode)
     {
-        var response = await _clientPolicy.TimeoutPolicyPessimistic.ExecuteAsync(async () =>
+        var response = await _clientPolicy.TimeoutPolicy.ExecuteAsync(async () =>
         {
             await Task.Delay(TimeSpan.FromSeconds(10));
             var result = _httpClient.GetAsync($"{BASE_URI}/{statusCode}");
             return result;
         });
-        
+
         return statusCode;
     }
 
     public async Task<int> GetWithBulkheadIsolation(int statusCode)
     {
-        List<Task> tasks = new ();
-        
+        List<Task> tasks = new();
+
         for (int i = 1; i <= 10; i++)
         {
             CustomProcessor(i);
             Thread.Sleep(500);
         }
-        
+
         void CustomProcessor(int num)
         {
-            Log.Error($@"[Bulkhead] Execution slots: {_clientPolicy.BulkheadPolicy.BulkheadAvailableCount}, 
-                                                    Queue Slots: {_clientPolicy.BulkheadPolicy.QueueAvailableCount}");
-            
+            Log.Error(
+                $@"[Bulkhead] Execution slots: {_clientPolicy.BulkheadPolicy.BulkheadAvailableCount}, Queue Slots: {_clientPolicy .BulkheadPolicy .QueueAvailableCount}"
+            );
+
             var response = _clientPolicy.BulkheadPolicy.ExecuteAsync(async () =>
             {
                 Log.Error($"[Bulkhead] Executing caller to HttpBin service: ({num})");
-                
+
                 await Task.Delay(TimeSpan.FromSeconds(3));
                 var result = _httpClient.GetAsync($"{BASE_URI}/{statusCode}");
                 return result;
             });
-            
+
             tasks.Add(response);
         }
-        
+
         try
         {
             await Task.WhenAll(tasks);
@@ -124,25 +129,50 @@ public class HttpBinService : IHttpBinService
 
     public async Task<int> GetWithFallbackPolicy(int statusCode)
     {
-        var response = await _clientPolicy.FallbackPolicy.ExecuteAsync(async ()
-            =>
+        var response = await _clientPolicy.FallbackPolicy.ExecuteAsync(async () =>
         {
             var result = await _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}");
             return result;
         });
 
         Log.Error($"[Fallback] {await response.Content.ReadAsStringAsync()}");
-        
+
         return (int)response.StatusCode;
+    }
+
+    public async Task<int> GetWithCachePolicy(int statusCode)
+    {
+        for (int loop = 1; loop <= 10; loop++)
+        {
+            var response = await _clientPolicy.CachePolicy.ExecuteAsync(async () =>
+            {
+                var result = await _httpClient.GetAsync(
+                    $"{BASE_URI}/{string.Join(",", statusCode)}"
+                );
+                await Task.Delay(3000);
+                return result;
+            });
+
+            Log.Error(
+                $"[CachePolicy] result={response.ReasonPhrase}. Executed Method really called {loop} time(s)."
+            );
+            Thread.Sleep(500);
+        }
+
+        return statusCode;
     }
 
     public async Task<int> GetWithWrappingThePolicies(int statusCode)
     {
-        throw new NotImplementedException();
-    }
+        var response = await _clientPolicy.PolicyWrap.ExecuteAsync(async () =>
+        {
+            var result = await _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}");
+            await Task.Delay(3000);
+            return result;
+        });
 
-    public Task<int> GetWithRetry(int statusCode)
-    {
-        throw new NotImplementedException();
+        Log.Error($"[Wrap] {await response.Content.ReadAsStringAsync()}");
+
+        return statusCode;
     }
 }

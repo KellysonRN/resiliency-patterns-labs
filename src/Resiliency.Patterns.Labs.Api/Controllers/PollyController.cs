@@ -12,15 +12,15 @@ namespace Resiliency.Patterns.Labs.Api.Controllers
     public class PollyController : ControllerBase
     {
         private readonly IHttpBinService _httpBinService;
-        
+
         public PollyController(IHttpBinService httpBinService)
         {
             _httpBinService = httpBinService;
         }
-        
+
         [HttpGet("{statusCode}", Name = "GetPolly")]
-        public IActionResult Get(int statusCode, [FromQuery]string? type = null)
-        {   
+        public IActionResult Get(int statusCode, [FromQuery] string? type = null)
+        {
             try
             {
                 var response = type switch
@@ -31,11 +31,13 @@ namespace Resiliency.Patterns.Labs.Api.Controllers
                     "timeout" => _httpBinService.GetWithTimeoutPolicy(statusCode),
                     "bulkhead" => _httpBinService.GetWithBulkheadIsolation(statusCode),
                     "fallback" => _httpBinService.GetWithFallbackPolicy(statusCode),
+                    "cache" => _httpBinService.GetWithCachePolicy(statusCode),
+                    "wrapping" => _httpBinService.GetWithWrappingThePolicies(statusCode),
                     _ => throw new ArgumentException("Invalid policy"),
                 };
-            
+
                 var result = new PollyDto { Hello = "World", Status = response.Result };
-            
+
                 return Ok(result);
             }
             catch (Exception)

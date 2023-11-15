@@ -32,7 +32,7 @@ public class ClientPolicy
 
     public AsyncCachePolicy<HttpResponseMessage> CachePolicy { get; }
 
-    public ClientPolicy()
+    public ClientPolicy(IMemoryCache cache)
     {
         ExponentialHttpRetry = Policy
             .HandleResult<HttpResponseMessage>(res => !res.IsSuccessStatusCode)
@@ -110,11 +110,8 @@ public class ClientPolicy
                 }
             );
 
-        var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        var memoryCacheProvider = new MemoryCacheProvider(memoryCache);
-
         CachePolicy = Policy.CacheAsync<HttpResponseMessage>(
-            memoryCacheProvider,
+            new MemoryCacheProvider(cache),
             TimeSpan.FromSeconds(1)
         );
 

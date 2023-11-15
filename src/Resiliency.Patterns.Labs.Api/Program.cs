@@ -15,11 +15,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpClient<IHttpBinService, HttpBinService>();
-builder.Services.AddSingleton(new ClientPolicy());
+builder.Services.AddSingleton<ClientPolicy>();
 
 builder.Host.UseSerilog((_, lc) => lc.WriteTo.Console(LogEventLevel.Debug));
 
 builder.Services.AddOptions<HttpBinSettings>().BindConfiguration("HttpBinService");
+
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 

@@ -1,4 +1,9 @@
-﻿using Resiliency.Patterns.Labs.Api.Configuration;
+﻿using Microsoft.CodeAnalysis.Options;
+using Microsoft.Extensions.Options;
+
+using Polly;
+
+using Resiliency.Patterns.Labs.Api.Configuration;
 using Resiliency.Patterns.Labs.Api.Services.Interfaces;
 
 using Serilog;
@@ -11,17 +16,19 @@ public class HttpBinService : IHttpBinService
 
     private readonly ClientPolicy _clientPolicy;
 
-    private const string BASE_URI = "http://httpbin.org/status";
+    private readonly string? _uri;
 
-    public HttpBinService(HttpClient httpClient, ClientPolicy clientPolicy)
+    public HttpBinService(HttpClient httpClient, ClientPolicy clientPolicy, IOptions<HttpBinSettings> httpBinSettings)
     {
         _httpClient = httpClient;
         _clientPolicy = clientPolicy;
+
+        _uri = httpBinSettings.Value.Uri;
     }
 
     public async Task<int> Get(int statusCode)
     {
-        var response = await _httpClient.GetAsync($"{BASE_URI}/{statusCode}");
+        var response = await _httpClient.GetAsync($"{_uri}/{statusCode}");
 
         Log.Information($"{response.IsSuccessStatusCode}");
 
@@ -31,7 +38,7 @@ public class HttpBinService : IHttpBinService
     public async Task<int> GetWithRetryPolicy(params int[] statusCode)
     {
         var response = await _clientPolicy.ExponentialHttpRetry.ExecuteAsync(
-            () => _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}")
+            () => _httpClient.GetAsync($"{_uri}/{string.Join(",", statusCode)}")
         );
 
         Log.Information(
@@ -52,7 +59,7 @@ public class HttpBinService : IHttpBinService
                 _ = await _clientPolicy.CircuitBreakerPolicy.ExecuteAsync(async () =>
                 {
                     var result = await _httpClient.GetAsync(
-                        $"{BASE_URI}/{string.Join(",", statusCode)}"
+                        $"{_uri}/{string.Join(",", statusCode)}"
                     );
                     result.EnsureSuccessStatusCode();
                     return result;
@@ -72,10 +79,10 @@ public class HttpBinService : IHttpBinService
 
     public async Task<int> GetWithTimeoutPolicy(int statusCode)
     {
-        var response = await _clientPolicy.TimeoutPolicy.ExecuteAsync(async () =>
+        await _clientPolicy.TimeoutPolicy.ExecuteAsync(async () =>
         {
             await Task.Delay(TimeSpan.FromSeconds(10));
-            var result = _httpClient.GetAsync($"{BASE_URI}/{statusCode}");
+            var result = _httpClient.GetAsync($"{_uri}/{statusCode}");
             return result;
         });
 
@@ -90,24 +97,6 @@ public class HttpBinService : IHttpBinService
         {
             CustomProcessor(i);
             Thread.Sleep(500);
-        }
-
-        void CustomProcessor(int num)
-        {
-            Log.Error(
-                $@"[Bulkhead] Execution slots: {_clientPolicy.BulkheadPolicy.BulkheadAvailableCount}, Queue Slots: {_clientPolicy .BulkheadPolicy .QueueAvailableCount}"
-            );
-
-            var response = _clientPolicy.BulkheadPolicy.ExecuteAsync(async () =>
-            {
-                Log.Error($"[Bulkhead] Executing caller to HttpBin service: ({num})");
-
-                await Task.Delay(TimeSpan.FromSeconds(3));
-                var result = _httpClient.GetAsync($"{BASE_URI}/{statusCode}");
-                return result;
-            });
-
-            tasks.Add(response);
         }
 
         try
@@ -125,13 +114,31 @@ public class HttpBinService : IHttpBinService
         }
 
         return statusCode;
+
+        void CustomProcessor(int num)
+        {
+            Log.Error(
+                $"[Bulkhead] Execution slots: {_clientPolicy.BulkheadPolicy.BulkheadAvailableCount}, Queue Slots: {_clientPolicy .BulkheadPolicy .QueueAvailableCount}"
+            );
+
+            var response = _clientPolicy.BulkheadPolicy.ExecuteAsync(async () =>
+            {
+                Log.Error($"[Bulkhead] Executing caller to HttpBin service: ({num})");
+
+                await Task.Delay(TimeSpan.FromSeconds(3));
+                var result = _httpClient.GetAsync($"{_uri}/{statusCode}");
+                return result;
+            });
+
+            tasks.Add(response);
+        }
     }
 
     public async Task<int> GetWithFallbackPolicy(int statusCode)
     {
         var response = await _clientPolicy.FallbackPolicy.ExecuteAsync(async () =>
         {
-            var result = await _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}");
+            var result = await _httpClient.GetAsync($"{_uri}/{string.Join(",", statusCode)}");
             return result;
         });
 
@@ -144,19 +151,22 @@ public class HttpBinService : IHttpBinService
     {
         for (int loop = 1; loop <= 10; loop++)
         {
-            var response = await _clientPolicy.CachePolicy.ExecuteAsync(async () =>
+            var response = await _clientPolicy.CachePolicy.ExecuteAsync(async _ =>
             {
                 var result = await _httpClient.GetAsync(
-                    $"{BASE_URI}/{string.Join(",", statusCode)}"
+                    $"{_uri}/{string.Join(",", statusCode)}"
                 );
-                await Task.Delay(3000);
+               
                 return result;
-            });
+            }, new Context("KeyForSomething"));
 
             Log.Error(
                 $"[CachePolicy] result={response.ReasonPhrase}. Executed Method really called {loop} time(s)."
             );
+            
             Thread.Sleep(500);
+            
+            
         }
 
         return statusCode;
@@ -166,7 +176,7 @@ public class HttpBinService : IHttpBinService
     {
         var response = await _clientPolicy.PolicyWrap.ExecuteAsync(async () =>
         {
-            var result = await _httpClient.GetAsync($"{BASE_URI}/{string.Join(",", statusCode)}");
+            var result = await _httpClient.GetAsync($"{_uri}/{string.Join(",", statusCode)}");
             await Task.Delay(3000);
             return result;
         });

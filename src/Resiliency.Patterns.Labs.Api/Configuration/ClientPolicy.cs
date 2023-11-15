@@ -18,10 +18,6 @@ namespace Resiliency.Patterns.Labs.Api.Configuration;
 
 public class ClientPolicy
 {
-    public AsyncRetryPolicy<HttpResponseMessage> ImmediateHttpRetry { get; }
-
-    public AsyncRetryPolicy<HttpResponseMessage> LinearHttpRetry { get; }
-
     public AsyncRetryPolicy<HttpResponseMessage> ExponentialHttpRetry { get; }
 
     public AsyncCircuitBreakerPolicy CircuitBreakerPolicy { get; }
@@ -38,14 +34,6 @@ public class ClientPolicy
 
     public ClientPolicy()
     {
-        ImmediateHttpRetry = Policy
-            .HandleResult<HttpResponseMessage>(res => !res.IsSuccessStatusCode)
-            .RetryAsync(10);
-
-        LinearHttpRetry = Policy
-            .HandleResult<HttpResponseMessage>(res => !res.IsSuccessStatusCode)
-            .WaitAndRetryAsync(5, _ => TimeSpan.FromSeconds(3));
-
         ExponentialHttpRetry = Policy
             .HandleResult<HttpResponseMessage>(res => !res.IsSuccessStatusCode)
             .WaitAndRetryAsync(
@@ -65,7 +53,7 @@ public class ClientPolicy
                 onBreak: (_, _) =>
                 {
                     Log.Error(
-                        $"[Circuit Break] Circuit open, too many failures, requests blocked."
+                        "[Circuit Break] Circuit open, too many failures, requests blocked."
                     );
                 },
                 onReset: () =>
@@ -93,7 +81,7 @@ public class ClientPolicy
         BulkheadPolicy = Policy.BulkheadAsync(
             1,
             3,
-            onBulkheadRejectedAsync: (context) =>
+            onBulkheadRejectedAsync: _ =>
             {
                 Log.Error("[Bulkhead] Execution and queue slots full. Requests will be rejected.");
                 return Task.CompletedTask;
@@ -103,9 +91,9 @@ public class ClientPolicy
         FallbackPolicy = Policy
             .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
             .FallbackAsync(
-                fallbackAction: (response, context, cancellationToken) =>
+                fallbackAction: (response, _, _) =>
                 {
-                    Log.Error($"[Fallback] Action is executing. ");
+                    Log.Error("[Fallback] Action is executing. ");
                     HttpResponseMessage httpResponseMessage =
                         new(HttpStatusCode.UnprocessableEntity)
                         {
@@ -115,7 +103,7 @@ public class ClientPolicy
                         };
                     return Task.FromResult(httpResponseMessage);
                 },
-                onFallbackAsync: (result, context) =>
+                onFallbackAsync: (_, _) =>
                 {
                     Log.Error("[Fallback] About to call the fallback action.");
                     return Task.CompletedTask;
@@ -127,7 +115,7 @@ public class ClientPolicy
 
         CachePolicy = Policy.CacheAsync<HttpResponseMessage>(
             memoryCacheProvider,
-            TimeSpan.FromSeconds(60)
+            TimeSpan.FromSeconds(1)
         );
 
         PolicyWrap = Policy.WrapAsync(ExponentialHttpRetry, FallbackPolicy);

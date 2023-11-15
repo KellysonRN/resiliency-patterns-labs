@@ -1,6 +1,5 @@
-﻿using System.Net;
+﻿using Microsoft.Extensions.Options;
 
-using Microsoft.Extensions.Logging;
 using Moq;
 
 using Resiliency.Patterns.Labs.Api.Configuration;
@@ -13,15 +12,13 @@ public class HttpBinServiceTest
 {
     private readonly IHttpBinService _service;
 
-    private readonly Mock<ILogger<HttpBinService>> _mockHttpBinService;
-
     public HttpBinServiceTest()
     {
         Mock<HttpClient> mockHttpClient = new();
         Mock<ClientPolicy> mockClientPolicy = new();
-        _mockHttpBinService = new Mock<ILogger<HttpBinService>>();
+        Mock<IOptions<HttpBinSettings>> mockSettings = new();
 
-        _service = new HttpBinService(httpClient: mockHttpClient.Object, clientPolicy: mockClientPolicy.Object);
+        _service = new HttpBinService(httpClient: mockHttpClient.Object, clientPolicy: mockClientPolicy.Object, mockSettings.Object);
     }
 
     [Fact]

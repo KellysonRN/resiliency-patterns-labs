@@ -17,7 +17,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<IHttpBinService, HttpBinService>();
 builder.Services.AddSingleton(new ClientPolicy());
 
-builder.Host.UseSerilog((ctx, lc) => lc.WriteTo.Console(LogEventLevel.Debug));
+builder.Host.UseSerilog((_, lc) => lc.WriteTo.Console(LogEventLevel.Debug));
+
+builder.Services.AddOptions<HttpBinSettings>().BindConfiguration("HttpBinService");
 
 var app = builder.Build();
 

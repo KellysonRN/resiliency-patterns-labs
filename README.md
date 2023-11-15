@@ -12,6 +12,7 @@ Learn time: Application resiliency patterns
 - Polly
 - Serilog
 - Stryker.NET
+- Options pattern
 
 ## Compatible IDEs
 

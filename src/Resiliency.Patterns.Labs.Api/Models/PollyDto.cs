@@ -2,7 +2,7 @@
 
 public class PollyDto
 {
-    public string? Hello { get; set; }
+    public string? Hello { get; init; }
 
-    public int Status { get; set; }
+    public int Status { get; init; }
 }

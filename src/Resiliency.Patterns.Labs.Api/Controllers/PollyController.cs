@@ -43,4 +43,12 @@ public class PollyController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError);
         }
     }
+
+    [HttpDelete("", Name = "ClearCache")]
+    public IActionResult Delete()
+    {
+        _httpBinService.CancelarToken();
+
+        return Ok();
+    }
 }

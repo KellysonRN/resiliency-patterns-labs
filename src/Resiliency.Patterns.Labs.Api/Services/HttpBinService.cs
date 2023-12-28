@@ -1,5 +1,4 @@
-﻿using Microsoft.CodeAnalysis.Options;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 
 using Polly;
 
@@ -17,6 +16,10 @@ public class HttpBinService : IHttpBinService
     private readonly ClientPolicy _clientPolicy;
 
     private readonly string? _uri;
+    
+    public static CancellationTokenSource CancellactionToken = new();
+    
+    public static Context Context = new("KeyForSomething");
 
     public HttpBinService(HttpClient httpClient, ClientPolicy clientPolicy, IOptions<HttpBinSettings> httpBinSettings)
     {
@@ -149,25 +152,19 @@ public class HttpBinService : IHttpBinService
 
     public async Task<int> GetWithCachePolicy(int statusCode)
     {
-        for (int loop = 1; loop <= 10; loop++)
-        {
-            var response = await _clientPolicy.CachePolicy.ExecuteAsync(async _ =>
-            {
-                var result = await _httpClient.GetAsync(
-                    $"{_uri}/{string.Join(",", statusCode)}"
-                );
-               
-                return result;
-            }, new Context("KeyForSomething"));
-
-            Log.Error(
-                $"[CachePolicy] result={response.ReasonPhrase}. Executed Method really called {loop} time(s)."
-            );
-            
-            Thread.Sleep(500);
-            
-            
-        }
+         var response = await _clientPolicy.CachePolicy.ExecuteAsync(
+             action: async (_, ct) => 
+             {
+                 var result = await _httpClient.GetAsync(
+                     $"{_uri}/{string.Join(",", statusCode)}", ct);
+                 return result;
+             }, context: Context, 
+        cancellationToken: CancellactionToken.Token, 
+        continueOnCapturedContext: false);
+         
+        Log.Error(
+            $"[CachePolicy] result={response.ReasonPhrase}."
+        );
 
         return statusCode;
     }
@@ -184,5 +181,25 @@ public class HttpBinService : IHttpBinService
         Log.Error($"[Wrap] {await response.Content.ReadAsStringAsync()}");
 
         return statusCode;
+    }
+    
+    public void CancelarToken()
+    {
+        Log.Error(
+            $"[CachePolicy] DELETE CACHE"
+        );
+        
+        CancellactionToken.Cancel();
+        
+        CancellactionToken.Dispose();
+
+        Context.Remove("KeyForSomething");
+
+        CancellactionToken = new CancellationTokenSource();
+            
+        Log.Error(
+            $"[CachePolicy] INIT CACHE"
+        );
+
     }
 }

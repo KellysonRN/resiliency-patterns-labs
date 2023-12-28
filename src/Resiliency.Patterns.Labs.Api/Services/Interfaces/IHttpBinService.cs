@@ -17,4 +17,6 @@ public interface IHttpBinService
     Task<int> GetWithCachePolicy(int statusCode);
     
     Task<int> GetWithWrappingThePolicies(int statusCode);
+
+    void CancelarToken();
 }

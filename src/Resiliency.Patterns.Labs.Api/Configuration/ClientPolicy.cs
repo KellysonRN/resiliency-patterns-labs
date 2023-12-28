@@ -112,7 +112,7 @@ public class ClientPolicy
 
         CachePolicy = Policy.CacheAsync<HttpResponseMessage>(
             new MemoryCacheProvider(cache),
-            TimeSpan.FromSeconds(1)
+            TimeSpan.FromSeconds(5)
         );
 
         PolicyWrap = Policy.WrapAsync(ExponentialHttpRetry, FallbackPolicy);

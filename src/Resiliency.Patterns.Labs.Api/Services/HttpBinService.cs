@@ -16,9 +16,9 @@ public class HttpBinService : IHttpBinService
     private readonly ClientPolicy _clientPolicy;
 
     private readonly string? _uri;
-    
+
     public static CancellationTokenSource CancellactionToken = new();
-    
+
     public static Context Context = new("KeyForSomething");
 
     public HttpBinService(HttpClient httpClient, ClientPolicy clientPolicy, IOptions<HttpBinSettings> httpBinSettings)
@@ -121,7 +121,7 @@ public class HttpBinService : IHttpBinService
         void CustomProcessor(int num)
         {
             Log.Error(
-                $"[Bulkhead] Execution slots: {_clientPolicy.BulkheadPolicy.BulkheadAvailableCount}, Queue Slots: {_clientPolicy .BulkheadPolicy .QueueAvailableCount}"
+                $"[Bulkhead] Execution slots: {_clientPolicy.BulkheadPolicy.BulkheadAvailableCount}, Queue Slots: {_clientPolicy.BulkheadPolicy.QueueAvailableCount}"
             );
 
             var response = _clientPolicy.BulkheadPolicy.ExecuteAsync(async () =>
@@ -152,16 +152,16 @@ public class HttpBinService : IHttpBinService
 
     public async Task<int> GetWithCachePolicy(int statusCode)
     {
-         var response = await _clientPolicy.CachePolicy.ExecuteAsync(
-             action: async (_, ct) => 
-             {
-                 var result = await _httpClient.GetAsync(
-                     $"{_uri}/{string.Join(",", statusCode)}", ct);
-                 return result;
-             }, context: Context, 
-        cancellationToken: CancellactionToken.Token, 
-        continueOnCapturedContext: false);
-         
+        var response = await _clientPolicy.CachePolicy.ExecuteAsync(
+            action: async (_, ct) =>
+            {
+                var result = await _httpClient.GetAsync(
+                    $"{_uri}/{string.Join(",", statusCode)}", ct);
+                return result;
+            }, context: Context,
+       cancellationToken: CancellactionToken.Token,
+       continueOnCapturedContext: false);
+
         Log.Error(
             $"[CachePolicy] result={response.ReasonPhrase}."
         );
@@ -182,21 +182,21 @@ public class HttpBinService : IHttpBinService
 
         return statusCode;
     }
-    
+
     public void CancelarToken()
     {
         Log.Error(
             $"[CachePolicy] DELETE CACHE"
         );
-        
+
         CancellactionToken.Cancel();
-        
+
         CancellactionToken.Dispose();
 
         Context.Remove("KeyForSomething");
 
         CancellactionToken = new CancellationTokenSource();
-            
+
         Log.Error(
             $"[CachePolicy] INIT CACHE"
         );

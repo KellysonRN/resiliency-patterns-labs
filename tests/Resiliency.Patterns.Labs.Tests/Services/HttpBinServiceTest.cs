@@ -36,7 +36,7 @@ public class HttpBinServiceTest
 
         Equal(200, result);
     }
-    
+
     [Fact]
     public async Task TestGetWithRetryPolicy_Fail()
     {

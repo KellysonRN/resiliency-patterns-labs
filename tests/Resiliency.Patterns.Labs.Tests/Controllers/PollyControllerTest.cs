@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
+
 using Resiliency.Patterns.Labs.Api.Models;
 
 namespace Resiliency.Patterns.Labs.Tests.Controllers;
 
-public class PollyControllerTest  : IClassFixture<WebApplicationFactory<Program>>
+public class PollyControllerTest : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
@@ -23,7 +24,7 @@ public class PollyControllerTest  : IClassFixture<WebApplicationFactory<Program>
         Equal("World", response.Hello);
         Equal(200, response.Status);
     }
-    
+
     [Fact]
     public async Task Get_ReturnsError500_InvalidPolicy()
     {
